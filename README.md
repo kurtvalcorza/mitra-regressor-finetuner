@@ -3,8 +3,8 @@
 DIMER fine-tuner for the Mitra regressor pipeline. It fine-tunes AutoGluon's Mitra
 ([`autogluon/mitra-regressor`](https://huggingface.co/autogluon/mitra-regressor)) on a
 validated tabular-regression dataset, then writes the model artifact and a `result.json` with
-metrics and provenance. See [MODEL_CARD.md](MODEL_CARD.md) for the model's provenance,
-checksums, and licence.
+metrics and provenance. See the [model card](https://github.com/kurtvalcorza/mitra-regressor-pipeline/blob/main/MODEL_CARD.md)
+for the model's provenance, checksums, and licence.
 
 - Runs as a GPU Kubernetes Job, and also on a CPU-only node (see below).
 - DIMER builds the root `Dockerfile` into an ECR image and runs `train.py`.
