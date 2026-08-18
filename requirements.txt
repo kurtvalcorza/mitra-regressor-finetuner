@@ -1,0 +1,6 @@
+# Finetuner deps. autogluon.tabular==1.5.0 ships the Mitra backend.
+# torch comes from the CUDA base image.
+autogluon.tabular==1.5.0
+pandas==2.2.3
+numpy==1.26.4
+requests==2.32.3
