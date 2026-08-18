@@ -37,7 +37,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-TEMPLATE_NAME = "dimer-finetuner-mitra-regressor"
+TEMPLATE_NAME = "mitra-regressor-finetuner"
 
 # Custom / Other normalizes taskType to object_detection upstream — bake our own default
 # into the image and treat the pipeline value as an override, never as the truth.

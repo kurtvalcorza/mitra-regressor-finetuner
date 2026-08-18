@@ -1,4 +1,4 @@
-# dimer-finetuner-mitra-regressor
+# mitra-regressor-finetuner
 
 DIMER fine-tuner for the Mitra regressor pipeline. It fine-tunes AutoGluon's Mitra
 ([`autogluon/mitra-regressor`](https://huggingface.co/autogluon/mitra-regressor)) on a
@@ -9,7 +9,7 @@ metrics and provenance.
 - DIMER builds the root `Dockerfile` into an ECR image and runs `train.py`.
 - `dimer-pipeline.json` at the repo root defines the workbench preprocessing and fine-tuning
   fields. The finetuner build re-reads it on every build.
-- Pairs with `dimer-dataset-validator-mitra-regressor`.
+- Pairs with `mitra-regressor-dataset-validator`.
 
 ## Fine-tune (GPU) versus zero-shot (CPU)
 
