@@ -66,6 +66,9 @@ VALIDATION_SPLIT = float(PREPROCESSING.get("validation_split") or 0.2)
 TIME_LIMIT = int(HYPERPARAMS.get("time_limit_seconds") or 600)
 SEED = int(HYPERPARAMS.get("seed") or 0)
 EVAL_METRIC = str(HYPERPARAMS.get("eval_metric") or "mean_absolute_error").strip()
+_ft = HYPERPARAMS.get("fine_tune", True)
+FINE_TUNE = _ft if isinstance(_ft, bool) else str(_ft).strip().lower() in ("true", "1", "yes")
+FINE_TUNE_STEPS = int(HYPERPARAMS.get("fine_tune_steps") or 0)  # 0 = AutoGluon default
 
 MITRA_MODEL_KEY = "MITRA"
 MITRA_ROW_LIMIT = 10_000  # hard upstream ceiling
@@ -171,8 +174,21 @@ def _fit_and_evaluate(train: pd.DataFrame, val: pd.DataFrame) -> dict[str, Any]:
     _seed_everything(SEED)
 
     # Honor the platform's device assignment.
-    if TRAIN_DEVICE.lower() == "cpu":
+    on_cpu = TRAIN_DEVICE.lower() == "cpu"
+    if on_cpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
+    # Resolve fine-tune vs zero-shot. Fine-tuning Mitra requires a GPU: on CPU the backward
+    # pass uses a low-precision path many CPUs do not support, so fall back to zero-shot
+    # in-context inference, which is CPU-safe.
+    fine_tune = FINE_TUNE
+    if on_cpu and fine_tune:
+        log("CPU device: Mitra fine-tuning is not supported on CPU; running zero-shot "
+            "(fine_tune=False) instead.")
+        fine_tune = False
+    mitra_hp: dict[str, Any] = {"fine_tune": fine_tune}
+    if fine_tune and FINE_TUNE_STEPS:
+        mitra_hp["fine_tune_steps"] = FINE_TUNE_STEPS
 
     from autogluon.tabular import TabularPredictor
 
@@ -188,7 +204,7 @@ def _fit_and_evaluate(train: pd.DataFrame, val: pd.DataFrame) -> dict[str, Any]:
     )
     predictor.fit(
         train,
-        hyperparameters={MITRA_MODEL_KEY: {}},
+        hyperparameters={MITRA_MODEL_KEY: mitra_hp},
         fit_weighted_ensemble=False,
         time_limit=TIME_LIMIT,
     )
@@ -226,6 +242,7 @@ def _fit_and_evaluate(train: pd.DataFrame, val: pd.DataFrame) -> dict[str, Any]:
         metrics["note"] = "No validation rows available; trained on all rows without holdout."
 
     metrics["artifactPath"] = str(predictor_path)
+    metrics["mode"] = "fine-tune" if fine_tune else "zero-shot"
     return metrics
 
 

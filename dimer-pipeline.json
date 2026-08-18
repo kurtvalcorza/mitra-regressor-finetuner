@@ -58,6 +58,20 @@
       "description": "Metric AutoGluon optimizes and reports.",
       "enum": ["mean_absolute_error", "root_mean_squared_error"],
       "default": "mean_absolute_error"
+    },
+    "fine_tune": {
+      "type": "boolean",
+      "kind": "boolean",
+      "description": "Fine-tune Mitra's weights (needs a GPU) versus zero-shot in-context inference. On a CPU instance the pipeline runs zero-shot regardless of this setting.",
+      "default": true
+    },
+    "fine_tune_steps": {
+      "type": "integer",
+      "kind": "range",
+      "description": "Number of fine-tuning steps when fine_tune is on. 0 uses AutoGluon's default. Ignored for zero-shot.",
+      "minimum": 0,
+      "maximum": 100,
+      "default": 0
     }
   }
 }
