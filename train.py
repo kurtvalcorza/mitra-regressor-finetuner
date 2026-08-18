@@ -171,20 +171,28 @@ def _prepare_frames() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def _fit_and_evaluate(train: pd.DataFrame, val: pd.DataFrame) -> dict[str, Any]:
-    _seed_everything(SEED)
-
-    # Honor the platform's device assignment.
-    on_cpu = TRAIN_DEVICE.lower() == "cpu"
-    if on_cpu:
+    # Resolve the effective device. One image runs on GPU or CPU: use the GPU only when the
+    # platform did not ask for CPU and a GPU is actually present at runtime. An explicit CPU
+    # request hides the GPU before torch initializes.
+    requested_cpu = TRAIN_DEVICE.lower() == "cpu"
+    if requested_cpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    _seed_everything(SEED)
+    try:
+        import torch
 
-    # Resolve fine-tune vs zero-shot. Fine-tuning Mitra requires a GPU: on CPU the backward
-    # pass uses a low-precision path many CPUs do not support, so fall back to zero-shot
-    # in-context inference, which is CPU-safe.
+        gpu_available = bool(torch.cuda.is_available())
+    except Exception:  # noqa: BLE001
+        gpu_available = False
+    use_gpu = gpu_available and not requested_cpu
+
+    # Fine-tuning Mitra requires a GPU: on CPU the backward pass uses a low-precision path
+    # many CPUs do not support. Without a usable GPU, run zero-shot in-context inference,
+    # which is CPU-safe.
     fine_tune = FINE_TUNE
-    if on_cpu and fine_tune:
-        log("CPU device: Mitra fine-tuning is not supported on CPU; running zero-shot "
-            "(fine_tune=False) instead.")
+    if not use_gpu and fine_tune:
+        why = "no GPU is available" if not gpu_available else "CPU was requested"
+        log(f"Running zero-shot (fine_tune=False): {why}; Mitra fine-tuning requires a GPU.")
         fine_tune = False
     mitra_hp: dict[str, Any] = {"fine_tune": fine_tune}
     if fine_tune and FINE_TUNE_STEPS:
@@ -243,6 +251,7 @@ def _fit_and_evaluate(train: pd.DataFrame, val: pd.DataFrame) -> dict[str, Any]:
 
     metrics["artifactPath"] = str(predictor_path)
     metrics["mode"] = "fine-tune" if fine_tune else "zero-shot"
+    metrics["device"] = "cuda" if use_gpu else "cpu"
     return metrics
 
 

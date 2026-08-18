@@ -1,6 +1,8 @@
-# DIMER finetuner — Mitra tabular regression (GPU).
+# DIMER finetuner — Mitra tabular regression (GPU image, with CPU fallback).
 # AutoGluon's Mitra runs on torch/CUDA; use a CUDA runtime base so the 5070 Ti / cluster
-# GPU is usable. Match the CUDA minor to the cluster's driver.
+# GPU is usable. Match the CUDA minor to the cluster's driver. train.py detects the GPU at
+# runtime, so this image also runs on a CPU-only node (zero-shot). For a lean CPU-only image
+# instead, use Dockerfile.cpu.
 FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 
 WORKDIR /app
