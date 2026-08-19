@@ -84,6 +84,7 @@ def test_uploaded_weights_installed_and_resolvable(tmp_path, monkeypatch):
 
     prov = T.resolve_and_verify_weights(_cfg(tmp_path, model_dir=model_dir))
     assert prov["source"] == "uploaded"
+    assert prov.get("configSha256")  # finding 3: config.json is hashed too
 
     from huggingface_hub import hf_hub_download
     path = hf_hub_download(T.BASE_MODEL, "model.safetensors")
@@ -99,6 +100,51 @@ def test_finetuner_never_drops_target(tmp_path):
     finally:
         src.close()
     assert "target" in train.columns and len(train) > 0
+
+
+def test_mitra_metric_map():
+    assert T._mitra_metric("root_mean_squared_error") == "rmse"
+    assert T._mitra_metric("MEAN_ABSOLUTE_ERROR") == "mae"
+    assert T._mitra_metric("r2") == "r2"
+    assert T._mitra_metric("explained_variance") is None  # unmapped -> Mitra default
+
+
+def test_regression_eval_sign_normalized():
+    raw = {"root_mean_squared_error": -3.5, "mean_absolute_error": -2.0, "r2": 0.9}
+    out = T._normalize_regression_eval(raw)
+    assert out["root_mean_squared_error"] == 3.5
+    assert out["mean_absolute_error"] == 2.0
+    assert out["r2"] == 0.9  # correlation-style metric unchanged
+
+
+def test_member_byte_cap_zip(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "MAX_MEMBER_UNCOMPRESSED_BYTES", 100)  # smaller than the CSV
+    _zip(tmp_path, {"train.csv": _frame(60)})
+    with pytest.raises(ValueError):
+        T.DatasetSource(tmp_path)
+
+
+def test_row_ceiling_rejected_not_truncated(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "MAX_CSV_ROWS", 10)
+    monkeypatch.setattr(T, "CSV_READ_CHUNK_ROWS", 4)
+    _zip(tmp_path, {"train.csv": _frame(60)})  # 60 rows > ceiling of 10
+    src = T.DatasetSource(tmp_path)
+    try:
+        with pytest.raises(ValueError):
+            src.read_csv("train.csv")
+    finally:
+        src.close()
+
+
+def test_directory_mode_byte_cap(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "MAX_MEMBER_UNCOMPRESSED_BYTES", 50)
+    _frame(60).to_csv(tmp_path / "train.csv", index=False)  # no zip -> directory mode
+    src = T.DatasetSource(tmp_path)
+    try:
+        with pytest.raises(ValueError):
+            src.read_csv("train.csv")
+    finally:
+        src.close()
 
 
 def test_safe_parse_bad_env():
