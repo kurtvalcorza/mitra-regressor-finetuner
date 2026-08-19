@@ -88,3 +88,19 @@ def test_uploaded_weights_installed_and_resolvable(tmp_path, monkeypatch):
     from huggingface_hub import hf_hub_download
     path = hf_hub_download(T.BASE_MODEL, "model.safetensors")
     assert Path(path).read_bytes() == b"FAKE_REG_WEIGHTS"
+
+
+def test_finetuner_never_drops_target(tmp_path):
+    _zip(tmp_path, {"train.csv": _frame(60)})
+    src = T.DatasetSource(tmp_path)
+    try:
+        # target listed in drop_columns must not cause a KeyError; the target survives.
+        train, val, test = T._prepare_frames(_cfg(tmp_path, drop_columns=["target", "f1"]), src)
+    finally:
+        src.close()
+    assert "target" in train.columns and len(train) > 0
+
+
+def test_safe_parse_bad_env():
+    assert T._safe_int("nope", 42) == 42
+    assert T._safe_float(None, 2.5) == 2.5

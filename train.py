@@ -56,8 +56,22 @@ MIN_ROWS_FOR_SPLIT = 20   # below this, don't carve a holdout out of train
 # Keep this block byte-identical across the validator and finetuner containers.
 # The CI parity check (scripts/check_shared.py) enforces it.
 # ============================================================================
-MAX_TOTAL_UNCOMPRESSED_BYTES = int(os.getenv("DIMER_MAX_UNCOMPRESSED_BYTES", str(4 * 1024**3)))
-MAX_COMPRESSION_RATIO = float(os.getenv("DIMER_MAX_COMPRESSION_RATIO", "200"))
+def _safe_int(value: str | None, default: int) -> int:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(value: str | None, default: float) -> float:
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+
+
+MAX_TOTAL_UNCOMPRESSED_BYTES = _safe_int(os.getenv("DIMER_MAX_UNCOMPRESSED_BYTES"), 4 * 1024**3)
+MAX_COMPRESSION_RATIO = _safe_float(os.getenv("DIMER_MAX_COMPRESSION_RATIO"), 200.0)
 _DATASET_DIR_ALIASES = {"dataset", "datasets"}
 
 
@@ -376,13 +390,15 @@ def _prepare_frames(cfg: Config, source: DatasetSource) -> tuple[pd.DataFrame, p
     if cfg.target_column not in train.columns:
         raise KeyError(f"target column '{cfg.target_column}' not in {list(train.columns)}")
 
-    drop = [c for c in cfg.drop_columns if c in train.columns]
+    # Never drop the target, even if a malformed config lists it in drop_columns.
+    drop = [c for c in cfg.drop_columns if c in train.columns and c != cfg.target_column]
     train = train.drop(columns=drop)
     train[cfg.target_column] = pd.to_numeric(train[cfg.target_column], errors="coerce")
     train = train[np.isfinite(train[cfg.target_column])]
 
     def _prep_holdout(df: pd.DataFrame) -> pd.DataFrame:
-        df = df.drop(columns=[c for c in cfg.drop_columns if c in df.columns])
+        cols = [c for c in cfg.drop_columns if c in df.columns and c != cfg.target_column]
+        df = df.drop(columns=cols)
         df[cfg.target_column] = pd.to_numeric(df[cfg.target_column], errors="coerce")
         return df[np.isfinite(df[cfg.target_column])]
 
