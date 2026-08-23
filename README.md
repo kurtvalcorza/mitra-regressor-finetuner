@@ -23,8 +23,11 @@ path. `train.py` detects the GPU at runtime:
 
 Each run records the effective `mode` (`fine-tune`/`zero-shot`) and `device` in `result.json`.
 
-Two images are provided: `Dockerfile` (GPU, CUDA base, auto-falls back to CPU zero-shot) and
-`Dockerfile.cpu` (a lean CPU-only image). DIMER builds the root `Dockerfile`.
+Two images are provided: `Dockerfile` (the default — a lean CPU image, since the default DIMER
+deployment provisions no GPU node pool and CPU builds stay within CodeBuild's 15-minute limit)
+and `Dockerfile.gpu` (opt-in CUDA image for GPU-enabled environments, auto-falls back to CPU
+zero-shot). DIMER always builds the root `Dockerfile`; for a GPU environment, rename
+`Dockerfile.gpu` to `Dockerfile` before connecting the repo.
 
 The complete pipeline documentation, dataset specification, and the validator are in the
 [mitra-regressor-pipeline](https://github.com/kurtvalcorza/mitra-regressor-pipeline) project.
